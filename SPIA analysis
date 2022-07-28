@@ -1,0 +1,44 @@
+setwd("C:/Users/p0068336/Desktop/lab_RNA-Seq/Deseq2/SPIA")
+res <- read.delim("ENTERZID.csv", header = TRUE, row.names = 1, sep = ",")
+sigs<- as.data.frame(res)
+
+##MapID 
+#Method with mapids to add ENTERZID
+#remove zeros
+sigs <- na.omit(sigs)
+head(sigs)
+
+sigs$ENTERZID <- mapIds(org.Mm.eg.db, keys = rownames(sigs), keytype = "ENSEMBL", column = "ENTREZID")
+head(sigs)
+write.csv(sigs, file = "ENTERZID.csv")
+
+
+###################################################
+### http://127.0.0.1:31595/session/Rvig.2ef413dc7d65.html
+### https://hbctraining.github.io/DGE_workshop_salmon/lessons/functional_analysis_2019.html
+### https://hbctraining.github.io/DGE_workshop_salmon/lessons/pathway_topology.html
+###################################################
+library(SPIA)
+head(res)
+#Remove sigs and duplicates ###Imp otherwise no results
+res <- res[!is.na(res$ENTERZID),]
+res[!duplicated(res$ENTERZID),]
+head(res)
+## Significant genes is a vector of fold changes where the names are ENTREZ gene IDs. The background set is a vector of all the genes represented on the platform.
+
+background_entrez <- res$ENTERZID
+sig_res_entrez <- res[which(res$padj < 0.05), ]
+sig_entrez <- as.vector(sig_res_entrez$log2FoldChange)
+names(sig_entrez) <- as.vector(sig_res_entrez$ENTERZID)
+
+head(sig_entrez)
+
+## Run SPCA
+spia_result <- spia(de=sig_entrez, all=background_entrez, organism="mmu", nB=2000,plots=FALSE,beta=NULL,combine="fisher",verbose=FALSE)
+
+head(spia_result, n=10)
+
+plotP(spia_result, threshold=0.05)
+subset(spia_result, ID == "04060")
+
+write.csv(spia_result,file = "d2_spia.csv")
