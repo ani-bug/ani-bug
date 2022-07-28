@@ -1,0 +1,111 @@
+setwd("C:/Users/p0068336/Desktop/lab_RNA-Seq/Deseq2")
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(DESeq2)
+library(SummarizedExperiment)
+library(AnnotationDbi)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(RColorBrewer)
+library(DOSE)
+library(GOplot)
+library(enrichplot)
+library(fgsea)
+#DESEQ2 analysis
+Counts <- read.delim("D2.csv", header = TRUE, row.names = 1, sep = ",")
+head(Counts)
+condition <- factor(c("C2","C2","S2","S2", "C2","C2","S2","S2"))
+colData <- data.frame(row.names = colnames(Counts), condition)
+colData
+dds <- DESeqDataSetFromMatrix(countData = Counts, colData = colData, design = ~ condition)
+dds <- DESeq(dds)
+view(counts(dds))
+
+ddsN <- estimateSizeFactors(dds)
+sizeFactors(ddsN)
+normalized_counts <- counts(ddsN, normalized=TRUE)
+write.table(normalized_counts, file="d2_normalised_counts_deseq2.csv", sep = ",", quote = F, col.names = NA)
+
+
+res <- results(dds, contrast = c("condition", "S2", "C2"))
+res
+write.csv(res, file = "d2_res.csv")
+
+res <- read.delim("d2_res.csv", header = TRUE, row.names = 1, sep = ",")
+
+#GO analysis
+sigs <- na.omit(res)
+sigs
+#adding gene symbols
+
+sigs<- as.data.frame(res)
+sigs$gene_symbol <- mapIds(org.Mm.eg.db, keys = rownames(sigs), keytype = "ENSEMBL", column = "SYMBOL")
+head(sigs)
+write.csv(sigs, file = "sigsd2.csv")
+####
+
+rownames(sigs[sigs$padj < 0.05,])
+sigs
+genes_to_test <- rownames(sigs[sigs$padj < 0.05,])
+
+Go_results <- enrichGO(gene = genes_to_test, pvalueCutoff = 0.05, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL", ont = "ALL", pAdjustMethod = "BH")
+head(Go_results)
+as.data.frame(Go_results)
+
+#Extract all results
+cluster_summary <- as.data.frame(Go_results)
+write.csv(cluster_summary, file = "cluster_summary_D2.csv")
+##plot style basic# fit <- plot(barplot(Go_results, showCategory = 20))
+
+### 
+dotplot(Go_results, showCategory=30)
+emapplot(Go_results, n=50, vertex.label.font=6)
+
+#GOBubble(circ, title = 'Bubble plot with background colour', display = 'multiple', bg.col = T, labels = 3)
+
+#plotting graph
+
+display.brewer.all()
+display.brewer.pal(3, "GnBu")
+mypalette <- brewer.pal(3, "GnBu")
+
+ggplot(Go_results, showCategory = 40) +
+  geom_point(aes(x = Count, y = Description, color = -log10(qvalue), size = GeneRatio)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=rel(1.15)),
+        axis.title = element_text(size=rel(1.15))) +
+  xlab("Count") +
+  ylab("Top 40 significant GO terms") +
+  ggtitle("Dotplot of top 40 significant GO terms") +
+  theme(plot.title = element_text(hjust=0.5, 
+                                  face = "bold")) +
+  scale_color_gradientn(name = "-Log(q value)", colors = mypalette) +
+  theme(legend.title = element_text(size=rel(1.15),
+                                    hjust=0.5, 
+                                    face="bold"))
+
+
+
+## To color genes by log2 fold changes, we need to extract the log2 fold changes from our results table creating a named vector
+D2_foldchanges <- sigs$log2FoldChange
+
+names(D2_foldchanges) <- sigs$Row.names
+
+## Cnetplot details the genes associated with one or more terms - by default gives the top 5 significant terms (by padj)
+library(ggnewscale)
+cnetplot(Go_results, 
+         categorySize="pvalue", 
+         showCategory = 5, 
+         foldChange=D2_foldchanges, 
+         vertex.label.font=6)
+
+## If some of the high fold changes are getting drowned out due to a large range, you could set a minimum and maximum fold change value
+OE_foldchanges <- ifelse(OE_foldchanges > 2, 2, OE_foldchanges)
+OE_foldchanges <- ifelse(OE_foldchanges < -2, -2, OE_foldchanges)
+
+cnetplot(ego, 
+         categorySize="pvalue", 
+         showCategory = 5, 
+         foldChange=OE_foldchanges, 
+         vertex.label.font=6)
