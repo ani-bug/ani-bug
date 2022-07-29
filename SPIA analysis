@@ -3,7 +3,7 @@ res <- read.delim("ENTERZID.csv", header = TRUE, row.names = 1, sep = ",")
 sigs<- as.data.frame(res)
 
 ##MapID 
-#Method with mapids to add ENTERZID
+#Method with mapids
 #remove zeros
 sigs <- na.omit(sigs)
 head(sigs)
@@ -34,11 +34,28 @@ names(sig_entrez) <- as.vector(sig_res_entrez$ENTERZID)
 head(sig_entrez)
 
 ## Run SPCA
-spia_result <- spia(de=sig_entrez, all=background_entrez, organism="mmu", nB=2000,plots=FALSE,beta=NULL,combine="fisher",verbose=FALSE)
+spia_result <- spia(de=sig_entrez, all=background_entrez, organism="mmu", nB=2000,plots=TRUE,beta=NULL,combine="fisher",verbose=FALSE)
 
 head(spia_result, n=10)
 
 plotP(spia_result, threshold=0.05)
 subset(spia_result, ID == "04060")
 
-write.csv(spia_result,file = "d2_spia.csv")
+write.csv(spia_result,file = "d2_spia2.csv")
+
+###extras
+spia_result <- spia_result[!is.na(spia_result$pPERT),]
+spia_result <- as.data.frame(spia_result)
+plotP(spia_result, threshold=0.05)
+points(I(-log(spia_result$pPERT))~I(-log(spia_result$pNDE)),data=spia_result[spia_result$ID=="04512",],col="green",pch=19,cex=1.5)
+###################################################
+### code chunk number 6: SPIA.Rnw:186-193
+###################################################
+spia_result$pG=combfunc(spia_result$pNDE,spia_result$pPERT,combine="norminv")
+spia_result$pGFdr=p.adjust(spia_result$pG,"fdr")
+spia_result$pGFWER=p.adjust(spia_result$pG,"bonferroni")
+
+plotP(spia_result,threshold=0.05)
+points(I(-log(pPERT))~I(-log(pNDE)),data=spia_result[spia_result$ID=="05012",],col="green",xlim=c(0,35), ylim=c(0,4), pch=01,cex=1.5)
+
+
